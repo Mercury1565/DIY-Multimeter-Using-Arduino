@@ -62,4 +62,4 @@ You can customize this DIY multimeter project in several ways:
 Feel free to experiment and tailor the project to meet your needs and preferences.
 
 * Here is a circuit sketch done on TinkerCad [https://www.tinkercad.com/things/1GwrEckdTg0]
-* Here is a detailed description of how the Arduino bases multimeter works [https://docs.google.com/document/d/14qYNBZH344GmFOFm2AUpqamJqHqriOBdRsRI1oHYuVo/edit]
+* Here is a detailed description of how the Arduino based multimeter works [https://docs.google.com/document/d/14qYNBZH344GmFOFm2AUpqamJqHqriOBdRsRI1oHYuVo/edit]
