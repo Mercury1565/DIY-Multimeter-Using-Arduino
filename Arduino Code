@@ -1,0 +1,321 @@
+#include <Adafruit_LiquidCrystal.h>
+Adafruit_LiquidCrystal lcd(0);
+
+#define SWITCH_MODE_PIN A3 // For the reading from the potentio
+#define piezoPin 7 // For the continity test
+#define resPin 8 // HIGH for resistanceMode , GRD for the rest
+
+#define incButtonPin 13 //Inc scale pushButton pin
+#define decButtonPin 12	//Dec scale pushButton pin
+
+#define scaleChangeLEDPin 9 //LED to indicate change in scale
+
+int incButtonRead;
+int decButtonRead;
+int oldIncButtonRead = 0;
+int oldDecButtonRead = 0;
+
+int scaleVar = 0;
+
+//Define the custom character 'OHM'
+byte omega[] = {
+  B01110,
+  B10001,
+  B10001,
+  B10001,
+  B10001,
+  B01010,
+  B11011,
+  B00000  
+};
+
+void setup()
+{
+  lcd.begin(16,2); 
+  lcd.print("DIY MULTIMETER");
+  delay(100);
+  lcd.clear();
+  
+  lcd.createChar(0, omega); //Creating the custom character 'OHM'
+  
+  pinMode(resPin , OUTPUT);
+  
+  pinMode(scaleChangeLEDPin , OUTPUT);
+  
+  pinMode(incButtonPin , OUTPUT);
+  pinMode(decButtonPin , OUTPUT);
+}
+
+void loop()
+{
+  incButtonRead = digitalRead(incButtonPin);
+  decButtonRead = digitalRead(decButtonPin);
+  
+  if(incButtonRead == 1 && oldIncButtonRead == 0){
+    digitalWrite(scaleChangeLEDPin , HIGH);
+    delay(20);
+    digitalWrite(scaleChangeLEDPin , LOW);
+   
+    if(scaleVar == 0){scaleVar = 1;}
+    else if(scaleVar == 1){scaleVar = 2;}
+    else if(scaleVar == 2){scaleVar = 3;}
+    else if(scaleVar == 3){
+      lcd.setCursor(0,0);
+      lcd.print("   MAX SCALE    ");
+      delay(20);
+    }
+  }
+  if(decButtonRead == 1 && oldDecButtonRead == 0){
+    digitalWrite(scaleChangeLEDPin , HIGH);
+    delay(20);
+    digitalWrite(scaleChangeLEDPin , LOW);
+    
+    if(scaleVar == 3){scaleVar = 2;}
+    else if(scaleVar == 2){scaleVar = 1;}
+    else if(scaleVar == 1){scaleVar = 0;}
+    else if(scaleVar == 0){
+      lcd.setCursor(0,0);
+      lcd.print("   MIN SCALE    ");
+      delay(20);
+    }
+  }
+  
+  oldIncButtonRead = incButtonRead;
+  oldDecButtonRead = decButtonRead;
+    
+  chooseMode(SWITCH_MODE_PIN , scaleVar);
+}
+
+void voltageMode(){
+  lcd.setCursor(0,0);
+  lcd.print("VOLTMETER");
+  
+  lcd.setCursor(9,0);
+  lcd.print(" 0-25V- ");
+  
+  noTone(piezoPin);
+  
+  int ANALOG_IN_PIN =  A0;
+  pinMode(ANALOG_IN_PIN , INPUT);
+  
+  float adc_voltage = 0.0;
+  float in_voltage = 0.0;
+
+  // R1 = 4*R2
+  float R1 = 30000.0;
+  float R2 = 7500.0;
+
+  float ref_voltage = 5.0;
+
+  int adc_value = 0;
+  
+  adc_value = analogRead(ANALOG_IN_PIN);
+  
+  adc_voltage = (adc_value * ref_voltage) / 1024.0;
+  
+  in_voltage = adc_voltage / (R2/(R1+R2));
+  
+  lcd.setCursor(0,1);
+  lcd.print(in_voltage , 3);
+  lcd.print(" Volts      ");
+}
+
+void currentMode(int scaleVar){
+  lcd.setCursor(0,0);
+  lcd.print("AMMETER  ");
+ 
+  noTone(piezoPin);
+  
+  int opAmp_126_READ =  A0;
+  int opAmp_51_READ =  A1;
+  
+  pinMode(opAmp_126_READ, OUTPUT);
+  pinMode(opAmp_51_READ, OUTPUT);
+  
+  float opAmp_126_reading;
+  float opAmp_51_reading;
+
+  float curVal;
+  float factor;
+
+  opAmp_126_reading = analogRead(opAmp_126_READ);
+  opAmp_51_reading = analogRead(opAmp_51_READ);
+  
+  factor = (5.0 / 1024.0) / 0.0075;
+ 
+  if(scaleVar == 0){
+    curVal = (factor * opAmp_126_reading) / 126.0;
+    
+    lcd.setCursor(9,0);
+    lcd.print("[0-1A]  ");
+    
+    if(curVal <= 1){ 
+      lcd.setCursor(0,1);
+     	if(curVal < 1){
+          lcd.print(curVal*1000.0 , 4);
+          lcd.print(" mAmps    ");
+      	}
+    }
+    else{
+      lcd.setCursor(0,1);
+      lcd.print("Increase Scale   ");
+    }
+   
+  }
+  else if(scaleVar == 1){
+    curVal = (factor * opAmp_51_reading) / 51.0;
+    
+    lcd.setCursor(9,0);
+    lcd.print("[ > 1A]   ");
+    
+    if(curVal < 1){
+      lcd.setCursor(0,1);
+      lcd.print("Decrease Scale   ");
+    }
+    
+    else{
+      lcd.setCursor(0,1);
+      lcd.print(curVal , 4);
+      lcd.print(" Amps      ");
+    }
+  }
+  else{
+  	lcd.setCursor(9,0);
+    lcd.print(" !!!!!! ");
+    lcd.setCursor(0,1);
+    lcd.print("Decrease Scale   ");
+  }
+}
+
+float resistanceMode(int scaleVar){
+  lcd.setCursor(0,0);
+  lcd.write(byte(0)); //Printing the 'ohm' symbol
+  lcd.print("-METER ");
+  
+  noTone(piezoPin); 
+  
+  int ANALOG_READ_PIN = A2;
+
+  // Pins for the 4 different scales
+  int scale_1 = 5;
+  int scale_2 = 4;
+  int scale_3 = 3;
+  int scale_4 = 2;
+  
+  pinMode(scale_1, INPUT);
+  pinMode(scale_2, INPUT);
+  pinMode(scale_3, INPUT);
+  pinMode(scale_4, INPUT);
+  
+  if(scaleVar == 0){
+    displayResistance(scale_1 ,scale_2, scale_3, scale_4, 0.0, 2.0);   
+  }
+  else if(scaleVar == 1){
+    displayResistance(scale_2 ,scale_1, scale_3, scale_4, 2.0 ,20.0);   
+  }
+  else if(scaleVar == 2){
+    displayResistance(scale_3 ,scale_1, scale_2, scale_4,20.0, 200.0);   
+  }
+  else if(scaleVar == 3){
+    displayResistance(scale_4 ,scale_1, scale_2, scale_3, 200.0, 1000.0);   
+  }
+}
+
+float measureResistance(int pin, int pin1, int pin2, int pin3, float RMax){
+  digitalWrite(resPin , HIGH);
+
+  pinMode(pin , OUTPUT);    
+  digitalWrite(pin , LOW);
+	
+  //The remaining 3 must have pinMode input and hence huge resistance
+  pinMode(pin1, INPUT);
+  pinMode(pin2, INPUT);
+  pinMode(pin3, INPUT);
+
+  float analogReading;
+  float voltageReading;
+  float resistanceReading;
+
+  int ANALOG_READ_PIN = A2;
+  
+  analogReading = analogRead(ANALOG_READ_PIN);
+  voltageReading = (analogReading * 5.0) / 1023.0;
+  resistanceReading = ((5.0 /voltageReading) - 1) * RMax;
+  
+  return resistanceReading;
+}
+
+void displayResistance(int pin, int pin1, int pin2, int pin3, float RMin, float RMax){
+  float resReading = measureResistance(pin, pin1, pin2, pin3, RMax);
+     
+  lcd.setCursor(8,0);
+  
+  if(RMin == 200.0){lcd.print(RMin/1000.0 , 1);}  
+  else{lcd.print(int(RMin));}
+ 
+  lcd.print("-");
+  
+  if(RMax == 1000.0){
+    lcd.print(int(RMax) / 1000);
+    lcd.print("M");
+    lcd.write(byte(0));
+    lcd.print("  ");
+  }  
+  else{
+  	lcd.print(int(RMax));
+  	lcd.print("k");
+    lcd.write(byte(0));
+    lcd.print("     ");
+  }
+  
+  if(resReading > RMax){
+    lcd.setCursor(0,1);
+    lcd.print("Increase Scale");
+  }
+  else if(resReading < RMin){
+    lcd.setCursor(0,1);
+    lcd.print("Decrease Scale");
+  }
+  else{
+    lcd.setCursor(0,1);
+    lcd.print(resReading , 3);
+    lcd.print(" k");
+    lcd.write(byte(0));
+    lcd.print("      ");
+  }
+}
+
+void continityMode(){
+  
+  lcd.setCursor(0,0);
+  lcd.print("CONTINITY TEST ");
+  lcd.setCursor(0,1); 
+  lcd.print("                 ");
+  
+  float continityCondition = measureResistance(5, 4, 3, 2, 2.0);
+  
+  if(continityCondition < 0.05){
+  	pinMode(piezoPin, OUTPUT);
+  	tone(piezoPin,900);
+  } 
+}
+
+void chooseMode(int potentioPin , int scaleVar){
+  int potentioReading = analogRead(potentioPin);
+  if(potentioReading <= 256){
+  	//For Voltage
+    voltageMode();
+  }
+  else if(potentioReading > 256 && potentioReading <= 512){
+  	//For Current 
+    currentMode(scaleVar);
+  }
+  else if(potentioReading > 512 && potentioReading <= 768){
+    //For Resistance
+    resistanceMode(scaleVar);
+  }
+  else if(potentioReading > 768){
+  	//For Continity
+    continityMode();
+  }
+}
